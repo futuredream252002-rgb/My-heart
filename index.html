@@ -95,18 +95,399 @@
                 textDisplay.innerHTML = messages[step];
                 step++;
                 
-                // နောက်ဆုံးအဆင့်ရောက်ရင် Button စာသားပြောင်းမယ်
-                if (step === messages.length) {
-                    nextBtn.innerHTML = "ကိုယ့်ရဲ့ အဖြေလွှာလေး 💌";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Prediction Panel (Precise Live Sync)</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; max-width: 600px; margin: auto; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2, h3 { color: #1a1a1a; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 8px; }
+        label { font-weight: bold; display: block; margin: 15px 0 5px; color: #444; }
+        input, select, button { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; font-size: 15px; }
+        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .btn-group button { flex: 1; min-width: 60px; cursor: pointer; background: #f8f9fa; border: 1px solid #ddd; color: #333; font-weight: bold; transition: 0.2s; }
+        .btn-group button:hover { background: #e9ecef; }
+        .btn-group button.active { background: #007bff; color: white; border-color: #0056b3; }
+        #btnBIG.active { background: #28a745; border-color: #1e7e34; }
+        #btnSMALL.active { background: #dc3545; border-color: #bd2130; }
+        .btn-predict { background: #28a745; color: white; border: none; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; padding: 15px; }
+        .btn-predict:hover { background: #218838; }
+        .switch-container { display: flex; align-items: center; justify-content: space-between; margin: 15px 0; background: #e9ecef; padding: 12px; border-radius: 6px; font-weight: bold; }
+        .admin-list { background: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; max-height: 120px; overflow-y: auto; }
+        .admin-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; background: white; padding: 5px 10px; border-radius: 4px; border: 1px solid #eee; }
+        .btn-del { width: auto; background: #dc3545; color: white; border: none; padding: 4px 10px; cursor: pointer; margin-bottom: 0; border-radius: 4px; }
+        .btn-del:hover { background: #bd2130; }
+        .api-status { font-size: 13px; color: #666; margin-top: -5px; margin-bottom: 10px; font-weight: 500; }
+        .status-ok { color: #28a745; }
+        .status-error { color: #dc3545; }
+        
+        /* စတစ်ကာခလုတ်များအတွက် ဒီဇိုင်းအသစ် */
+        .btn-sticker-group button.active { background: #6f42c1; color: white; border-color: #59359a; }
+        .btn-sticker-send { background: #6f42c1; color: white; border: none; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 5px; padding: 12px; }
+        .btn-sticker-send:hover { background: #59359a; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h3>🔑 Admin ChatID Config</h3>
+        <p style="font-size: 13px; color: #666; margin-top: -5px;">ဤနေရာတွင် ထည့်ထားသော Chat ID များသာ Signal ပို့ခွင့်ရှိမည်။</p>
+        <div style="display:flex; gap:8px;">
+            <input type="text" id="newAdminId" placeholder="Chat ID အသစ်ထည့်ရန်">
+            <button onclick="addAdmin()" style="width:100px; background:#17a2b8; color:white; border:none; margin-bottom:10px;">Add</button>
+        </div>
+        <div class="admin-list" id="adminList">Loading Admins...</div>
+    </div>
+
+    <div class="card">
+        <h3>🎉 Quick Sticker Sender</h3>
+        <p style="font-size: 13px; color: #666; margin-top: -5px;">Channel ထဲသို့ Sticker များ အမြန်လှမ်းပို့ရန် နံပါတ်ရွေးပြီး Send နှိပ်ပါ။</p>
+        
+        <label>🖼 Select Sticker Number</label>
+        <div class="btn-group btn-sticker-group" id="stickerButtonsContainer"></div>
+        
+        <button class="btn-sticker-send" onclick="sendSticker()">🚀 Send Sticker To Channel</button>
+    </div>
+
+    <div class="card">
+        <h2>🔮 Manual Prediction Panel</h2>
+        
+        <label>👤 Your User Chat ID (စစ်ဆေးရန်)</label>
+        <input type="text" id="userChatId" placeholder="သင်၏ Telegram Chat ID ကို ရိုက်ထည့်ပါ">
+
+        <label>🔢 Next Period Number</label>
+        <div style="display:flex; gap: 8px;">
+            <input type="text" id="periodNumber" placeholder="Fetching Period..." style="background: #e9ecef;" readonly>
+            <button onclick="fetchPeriod()" style="width:120px; background:#6c757d; color:white; border:none; margin-bottom:10px;">Refresh</button>
+        </div>
+        <div id="apiStatus" class="api-status">⏳ Connecting to Precise Live API...</div>
+
+        <label>🎯 Prediction</label>
+        <div class="btn-group">
+            <button type="button" id="btnBIG" onclick="setPrediction('BIG')">BIG</button>
+            <button type="button" id="btnSMALL" onclick="setPrediction('SMALL')">SMALL</button>
+        </div>
+
+        <div class="switch-container">
+            <span>⚙️ Amount Mode:</span>
+            <select id="modeSwitch" onchange="toggleMode()" style="width: auto; margin-bottom: 0; padding: 5px;">
+                <option value="X">Multiplier Mode (1X - 10X)</option>
+                <option value="BALANCE">Balance Mode (1000+)</option>
+            </select>
+        </div>
+
+        <label>💰 Amount / Multiplier</label>
+        <div class="btn-group" id="xButtonsContainer"></div>
+
+        <div class="btn-group" id="balanceButtonsContainer" style="display:none; flex-direction: column;">
+            <div class="btn-group">
+                <button type="button" class="btn-bal" onclick="setAmount('1000')">1000</button>
+                <button type="button" class="btn-bal" onclick="setAmount('2000')">2000</button>
+                <button type="button" class="btn-bal" onclick="setAmount('5000')">5000</button>
+                <button type="button" class="btn-bal" onclick="setAmount('10000')">10000</button>
+            </div>
+            <input type="number" id="customBalance" placeholder="စိတ်ကြိုက် Balance ရိုက်ထည့်ရန် (အနည်းဆုံး 1000)" oninput="setAmount(this.value)">
+        </div>
+
+        <button class="btn-predict" onclick="sendPrediction()">🚀 Send To Channel</button>
+    </div>
+
+    <script>
+        // --- TELEGRAM BOT CONFIG ---
+        const BOT_TOKEN = "8850881103:AAEjhcdQr3x57WeDLaIYdhrW1cLEsxyWq5g"; 
+        const CHANNEL_ID = "-1002172506445"; 
+
+        // --- 🔐 ADMIN SECURITY CONFIG ---
+        const ADMIN_PASSWORD = "ဖင်ခံချင်တယ်"; // စိတ်ကြိုက် Password ပြောင်းလဲနိုင်ပါသည်
+
+        // --- 📥 STICKER LIST CONFIG ---
+        const stickerList = [
+            "CAACAgUAAxkBAAERbJJqNrbMacaayYLmM0pNNaX1IwUNnAAC9BUAAnQv2VWG_EV7t3ItYzwE", 
+            "CAACAgUAAxkBAAERbJRqNrcsrEi7nsaw-l4PK2gxUU5JhAACVBAAAn2VgFTO4JTk_AqWgjwE", 
+            "CAACAgUAAxkBAAERbJVqNrcsz7ESWG6HCTgCMhdhsrdmEAACpQAD7teNJ1-syID1SnyfPAQ"  
+        ];
+        let selectedStickerIndex = 0; 
+
+        // --- API CONFIG ---
+        const TRX_API = "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json";
+        const BACKUP_API = "https://api.bigwinqaz.com/api/webapi/GetTRXNoaverageEmerdList";
+
+        const API_OFFSET = 10n; 
+
+        let allowedAdmins = JSON.parse(localStorage.getItem('allowedAdmins')) || ["8743082444"]; 
+        let selectedPrediction = '';
+        let selectedAmount = '1X';
+        let currentPeriod = '';
+
+        window.onload = function() {
+            generateXButtons();
+            generateStickerButtons(); 
+            loadAdmins();
+            fetchPeriod();
+            setInterval(fetchPeriod, 3000);
+        };
+
+        // စတစ်ကာ ခလုတ်များ dynamic ထုတ်ပေးခြင်း
+        function generateStickerButtons() {
+            const container = document.getElementById('stickerButtonsContainer');
+            let html = '';
+            stickerList.forEach((sticker, index) => {
+                const num = index + 1;
+                html += `<button type="button" class="btn-stk" id="stk-${index}" onclick="selectSticker(${index})">${num}</button>`;
+            });
+            container.innerHTML = html;
+            document.getElementById('stk-0').classList.add('active'); 
+        }
+
+        // စတစ်ကာ ရွေးချယ်ခြင်း
+        function selectSticker(index) {
+            selectedStickerIndex = index;
+            document.querySelectorAll('.btn-stk').forEach(b => b.classList.remove('active'));
+            document.getElementById(`stk-${index}`).classList.add('active');
+        }
+
+        // Telegram သို့ Sticker သီးသန့်လှမ်းပို့ခြင်း Function
+        function sendSticker() {
+            const userChatId = document.getElementById('userChatId').value.trim();
+            if(!userChatId) return alert("❌ ကျေးဇူးပြု၍ သင်၏ User Chat ID ကို ရိုက်ထည့်ပါ!");
+            if(!allowedAdmins.includes(userChatId)) return alert("❌ ခွင့်ပြုချက်မရှိပါ။ သင်၏ Chat ID သည် Admin မဟုတ်ပါ။");
+
+            const stickerId = stickerList[selectedStickerIndex];
+            const telegramUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendSticker`;
+
+            fetch(telegramUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: CHANNEL_ID,
+                    sticker: stickerId
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.ok) {
+                    alert(`🚀 Sticker ${selectedStickerIndex + 1} ကို Channel သို့ အောင်မြင်စွာ ပို့ပြီးပါပြီ။`);
+                } else {
+                    alert("❌ Sticker ပို့ရန် မအောင်မြင်ပါ။ ID မှားယွင်းနေနိုင်ပါသည်။");
                 }
-            } else {
-                // အားလုံးနှိပ်ပြီးသွားတဲ့ အခါမှာ ပေါ်လာမယ့် စာမျက်နှာ
-                textDisplay.innerHTML = "ချစ်လွန်းလို့ ရင်ခုန်သံတွေ ထိန်းမရတော့ဘူး! 🙈💕<br><br><b>I Love You More Than Yesterday!</b>";
-                nextBtn.style.display = 'none'; // Button ကို ဖျောက်လိုက်မယ်
-                
-                // ခုန်နေတဲ့ နှလုံးသားပုံစံလေး ထည့်ပေးမယ်
-                heartSpace.innerHTML = '<div class="heart">❤️</div>';
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Error: Telegram သို့ ချိတ်ဆက်၍မရပါ။");
+            });
+        }
+
+        function generateXButtons() {
+            const container = document.getElementById('xButtonsContainer');
+            let html = '';
+            for(let i=1; i<=10; i++) {
+                html += `<button type="button" class="btn-x" id="x-${i}" onclick="setAmount('${i}X', 'x-${i}')">${i}X</button>`;
             }
+            container.innerHTML = html;
+            document.getElementById('x-1').classList.add('active'); 
+        }
+
+        async function fetchPeriod() {
+            const statusEl = document.getElementById('apiStatus');
+            const periodInput = document.getElementById('periodNumber');
+            const cacheBuster = `?v=${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+            
+            try {
+                let response = await fetch(TRX_API + cacheBuster, {
+                    method: 'GET',
+                    headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+                });
+                let data = await response.json();
+                
+                if (data.code === 0 && data.data?.list?.length > 0) {
+                    const latest = data.data.list[data.data.list.length - 1];
+                    if (latest && latest.issueNumber) {
+                        const calibratedPeriod = (BigInt(latest.issueNumber) + API_OFFSET).toString();
+                        if (periodInput.value !== calibratedPeriod) {
+                            currentPeriod = calibratedPeriod;
+                            periodInput.value = calibratedPeriod;
+                        }
+                        statusEl.textContent = `✅ Live Sync OK • Calibrated (+9) • ${new Date().toLocaleTimeString()}`;
+                        statusEl.className = 'api-status status-ok';
+                        return;
+                    }
+                }
+                
+                const backupPayload = {
+                    "pageSize": 10, "pageNo": 1, "typeId": 13, "language": 7,
+                    "random": Math.random().toString(36).substring(2),
+                    "signature": "2A8139A456AC0FFC6B68BE68C42C8453",
+                    "timestamp": Math.floor(Date.now() / 1000)
+                };
+                
+                response = await fetch(BACKUP_API + cacheBuster, {
+                    method: 'POST',
+                    headers: { "Content-Type": "application/json;charset=UTF-8", 'Cache-Control': 'no-cache' },
+                    body: JSON.stringify(backupPayload)
+                });
+                data = await response.json();
+                
+                if (data.code === 0 && data.data?.data?.gameslist?.length > 0) {
+                    const latest = data.data.data.gameslist[0];
+                    if (latest && latest.issueNumber) {
+                        const calibratedPeriod = (BigInt(latest.issueNumber) + API_OFFSET).toString();
+                        if (periodInput.value !== calibratedPeriod) {
+                            currentPeriod = calibratedPeriod;
+                            periodInput.value = calibratedPeriod;
+                        }
+                        statusEl.textContent = `✅ Backup Sync OK • Calibrated (+9) • ${new Date().toLocaleTimeString()}`;
+                        statusEl.className = 'api-status status-ok';
+                        return;
+                    }
+                }
+                throw new Error('Stale response');
+            } catch (err) {
+                console.error(err);
+                statusEl.textContent = '⚠️ Sync Delay: ဒေတာအသစ်စောင့်ဆိုင်းနေဆဲ... Manual ပြင်နိုင်ပါသည်။';
+                statusEl.className = 'api-status status-error';
+                if(periodInput.value.includes("Fetching")) {
+                    periodInput.style.background = '#fff';
+                    periodInput.readOnly = false;
+                    periodInput.placeholder = 'ကိုယ်တိုင် ရိုက်ထည့်ပါ';
+                    periodInput.value = '';
+                }
+            }
+        }
+
+        function loadAdmins() {
+            localStorage.setItem('allowedAdmins', JSON.stringify(allowedAdmins));
+            const list = document.getElementById('adminList');
+            list.innerHTML = allowedAdmins.map(id => `
+                <div class="admin-item">
+                    <span>🆔 <b>${id}</b></span>
+                    <button class="btn-del" onclick="deleteAdmin('${id}')">Remove</button>
+                </div>
+            `).join('') || "ခွင့်ပြုထားသော Admin မရှိသေးပါ။";
+
+            // နောက်ဆုံးထည့်ထားတဲ့ Admin ID ကို User Chat ID box မှာ တစ်ခါတည်း သွားပေါ်စေခြင်း
+            if(allowedAdmins.length > 0) {
+                document.getElementById('userChatId').value = allowedAdmins[allowedAdmins.length - 1];
+            } else {
+                document.getElementById('userChatId').value = '';
+            }
+        }
+
+        function addAdmin() {
+            const id = document.getElementById('newAdminId').value.trim();
+            if(!id) return alert("❌ ကျေးဇူးပြု၍ Chat ID ထည့်ပါ။");
+
+            if(allowedAdmins.includes(id)) {
+                return alert("❌ ဤ Chat ID သည် Admin List ထဲတွင် ရှိပြီးသားဖြစ်ပါသည်။");
+            }
+
+            // Password တောင်းခြင်း
+            const password = prompt("🔑 Admin အသစ်ထည့်ရန် စကားဝှက် (Password) ရိုက်ထည့်ပါ:");
+            if (password === null) return; // User Cancel နှိပ်ရင် ဘာမှမလုပ်ပါ
+            
+            if (password === ADMIN_PASSWORD) {
+                allowedAdmins.push(id);
+                document.getElementById('newAdminId').value = '';
+                loadAdmins();
+                alert("✅ Admin အသစ်ကို အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ။");
+            } else {
+                alert("❌ စကားဝှက် မှားယွင်းနေပါသည်။ ပြန်လည် ကြိုးစားပါ။");
+            }
+        }
+
+        function deleteAdmin(id) {
+            // Password တောင်းခြင်း
+            const password = prompt(`🔑 Admin ID [${id}] ကို ဖျက်ရန် စကားဝှက် (Password) ရိုက်ထည့်ပါ:`);
+            if (password === null) return; 
+
+            if (password === ADMIN_PASSWORD) {
+                allowedAdmins = allowedAdmins.filter(item => item !== id);
+                loadAdmins();
+                alert("✅ Admin ID ကို အောင်မြင်စွာ ဖျက်သိမ်းပြီးပါပြီ။");
+            } else {
+                alert("❌ စကားဝှက် မှားယွင်းနေပါသည်။ ဖျက်ခွင့်မရှိပါ။");
+            }
+        }
+
+        function setPrediction(val) {
+            selectedPrediction = val;
+            document.getElementById('btnBIG').classList.remove('active');
+            document.getElementById('btnSMALL').classList.remove('active');
+            document.getElementById('btn' + val).classList.add('active');
+        }
+
+        function toggleMode() {
+            const mode = document.getElementById('modeSwitch').value;
+            document.querySelectorAll('.btn-x, .btn-bal').forEach(b => b.classList.remove('active'));
+            document.getElementById('customBalance').value = '';
+
+            if(mode === 'X') {
+                document.getElementById('xButtonsContainer').style.display = 'flex';
+                document.getElementById('balanceButtonsContainer').style.display = 'none';
+                setAmount('1X', 'x-1');
+            } else {
+                document.getElementById('xButtonsContainer').style.display = 'none';
+                document.getElementById('balanceButtonsContainer').style.display = 'flex';
+                setAmount('1000');
+            }
+        }
+
+        function setAmount(val, elementId) {
+            selectedAmount = val;
+            document.querySelectorAll('.btn-x, .btn-bal').forEach(b => b.classList.remove('active'));
+            if (elementId) {
+                document.getElementById(elementId).classList.add('active');
+            } else if (event && event.target && event.target.tagName === 'BUTTON') {
+                event.target.classList.add('active');
+            }
+        }
+
+        function sendPrediction() {
+            const userChatId = document.getElementById('userChatId').value.trim();
+            const periodInput = document.getElementById('periodNumber');
+            let period = periodInput.value.trim();
+
+            if(!userChatId) return alert("❌ ကျေးဇူးပြု၍ သင်၏ User Chat ID ကို ရိုက်ထည့်ပါ!");
+            if(!allowedAdmins.includes(userChatId)) return alert("❌ ခွင့်ပြုချက်မရှိပါ။ သင်၏ Chat ID သည် Admin Config တွင် မရှိပါ။");
+
+            if (!period || period.includes("Fetching")) {
+                period = currentPeriod;
+                periodInput.value = currentPeriod;
+            }
+            if(!period || period.includes("Fetching")) return alert("❌ တရားဝင် Period နံပါတ် မရှိသေးပါ။");
+            if(!selectedPrediction) return alert("🎯 BIG သို့မဟုတ် SMALL ရွေးချယ်ပေးပါ!");
+
+            if(document.getElementById('modeSwitch').value === 'BALANCE' && parseInt(selectedAmount) < 1000) {
+                return alert("❌ Balance Mode တွင် အနည်းဆုံး 1000 မှ စတင်ရပါမည်။");
+            }
+
+            const textMessage = `🔔 **NEW SIGNAL** 🔔\n\n🎯 **Period:** ${period}\n🎰 **Prediction:** ${selectedPrediction}\n📈 **Amount/Multiplier:** ${selectedAmount}\n\nGood Luck! 👍`;
+            const telegramUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+            
+            fetch(telegramUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: CHANNEL_ID,
+                    text: textMessage,
+                    parse_mode: 'Markdown'
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.ok) {
+                    alert("🚀 Telegram Channel သို့ Signal အောင်မြင်စွာ ပို့ပြီးပါပြီ။");
+                    setTimeout(fetchPeriod, 500);
+                } else {
+                    alert("❌ ပို့ရန် မအောင်မြင်ပါ။");
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Error: Telegram သို့ ချက်ဆက်၍မရပါ။");
+            });
         }
     </script>
 </body>
